@@ -1,0 +1,247 @@
+version: "1.0.0"
+generated_at: "2026-02-13T12:00:00Z"
+source: "docs/requirements/design-requirements.md"
+
+aesthetic:
+  direction: clinical-professional
+  mood: serious-trustworthy
+  differentiation: "医療・診断ツールの信頼感と客観性を備えたミニマルUI"
+  keywords:
+    - 信頼性
+    - 客観性
+    - 透明性
+    - プロフェッショナル
+  references:
+    - name: "23andMe"
+      url: "https://www.23andme.com"
+      point: "医療・診断レポートの信頼感のあるUI、クリーンなデータ表示"
+    - name: "Apple Health"
+      point: "ヘルスケアデータの視認性の高い表示、ミニマルかつ情報密度の高いレイアウト"
+    - name: "Linear"
+      url: "https://linear.app"
+      point: "プロフェッショナルツールのクリーンなUI、無駄のないインターフェース"
+
+colors:
+  primary: "#1C2127"
+  secondary: "#F8FAFC"
+  accent: "#0891B2"
+  accent_secondary: "#059669"
+  accent_tertiary: "#D97706"
+  muted: "#94A3B8"
+  subtle: "#E2E8F0"
+  danger: "#DC2626"
+  surface: "#FFFFFF"
+  background:
+    light: "#F8FAFC"
+    dark: "#0F172A"
+  text:
+    primary: "#1E293B"
+    secondary: "#64748B"
+  border:
+    light: "#E2E8F0"
+    dark: "#334155"
+  score:
+    rank_1: "#DC2626"
+    rank_2: "#EA580C"
+    rank_3: "#D97706"
+    rank_4: "#CA8A04"
+    rank_5: "#A3A30A"
+    rank_6: "#65A30D"
+    rank_7: "#16A34A"
+    rank_8: "#059669"
+    rank_9: "#0891B2"
+    rank_10: "#0284C7"
+  dark_mode:
+    background: "#0F172A"
+    surface: "#1E293B"
+    text_primary: "#F1F5F9"
+    text_secondary: "#94A3B8"
+    border: "#334155"
+    accent: "#22D3EE"
+
+typography:
+  heading:
+    family: "DM Sans"
+    fallback: "system-ui, sans-serif"
+    weights: [600, 700]
+    sizes:
+      h1: "2.5rem"
+      h2: "2rem"
+      h3: "1.5rem"
+      h4: "1.25rem"
+  body:
+    family: "Noto Sans JP"
+    fallback: "system-ui, sans-serif"
+    weights: [400, 500]
+    sizes:
+      regular: "1rem"
+      large: "1.125rem"
+      small: "0.875rem"
+      caption: "0.75rem"
+  score:
+    family: "DM Sans"
+    weight: 700
+    size: "5rem"
+  advice:
+    family: "Noto Sans JP"
+    weight: 500
+    size: "0.9375rem"
+  banned:
+    - "Inter"
+    - "Roboto"
+    - "Arial"
+    - "Space Grotesk"
+
+spacing:
+  unit: "8px"
+  scale:
+    xs: "4px"
+    sm: "8px"
+    md: "16px"
+    lg: "24px"
+    xl: "32px"
+    2xl: "48px"
+    3xl: "64px"
+
+borders:
+  radius:
+    none: "0"
+    sm: "4px"
+    md: "8px"
+    lg: "12px"
+    xl: "16px"
+    full: "9999px"
+  width:
+    thin: "1px"
+    medium: "2px"
+    thick: "4px"
+  component_radius:
+    button: "8px"
+    card: "12px"
+    modal: "16px"
+    input: "8px"
+    image: "8px"
+    score_display: "12px"
+
+shadows:
+  sm: "0 1px 2px rgba(0, 0, 0, 0.05)"
+  md: "0 4px 6px rgba(0, 0, 0, 0.1)"
+  lg: "0 10px 15px rgba(0, 0, 0, 0.1)"
+  xl: "0 20px 25px rgba(0, 0, 0, 0.1)"
+  note: "シャドウは控えめに使用。ボーダーで要素の区切りを表現する方が信頼感がある"
+  component_shadows:
+    button: "none"
+    card: "sm"
+    modal: "md"
+    image: "sm"
+    score_display: "none"
+
+animation:
+  max_duration: "200ms"
+  compositor_only: true
+  allowed_properties:
+    - "transform"
+    - "opacity"
+  banned_effects:
+    - "バウンス効果"
+    - "3Dトランスフォーム"
+    - "複雑なキーフレームシーケンス"
+    - "パーティクルエフェクト"
+    - "カウントアップアニメーション"
+    - "グロー効果"
+    - "キラキラエフェクト"
+  screen_animations:
+    score_reveal:
+      type: "fadeIn + scale"
+      scale: "0.95 -> 1.0"
+      duration: "200ms"
+      easing: "ease-out"
+    page_transition:
+      type: "subtle fade"
+      duration: "150ms"
+      easing: "ease-in-out"
+    card_stagger:
+      type: "stagger fadeIn"
+      duration: "100ms"
+      delay: "50ms"
+      easing: "ease-out"
+    button_hover:
+      type: "opacity"
+      from: 1.0
+      to: 0.9
+      duration: "100ms"
+      easing: "ease"
+    upload_drop:
+      type: "border color change"
+      duration: "150ms"
+      easing: "ease"
+    loading_pulse:
+      type: "pulse"
+      duration: "1500ms"
+      loop: true
+      easing: "ease-in-out"
+
+components:
+  library: "shadcn/ui"
+  styling: "tailwind"
+  animation: "motion/react"
+  icons: "lucide-react"
+
+responsive:
+  mobile_first: true
+  breakpoints:
+    sm: "640px"
+    md: "768px"
+    lg: "1024px"
+    xl: "1280px"
+    2xl: "1536px"
+  safe_area: true
+  touch_target_min: "44px"
+  touch_target_cta: "48px"
+
+quality:
+  lighthouse:
+    performance: 90
+    accessibility: 100
+    best_practices: 100
+    seo: 100
+  core_web_vitals:
+    fcp: "< 1.8s"
+    lcp: "< 2.5s"
+    cls: "< 0.1"
+  wcag_level: "AA"
+  contrast_ratio: "4.5:1"
+  dark_mode: true
+  image_formats:
+    - "WebP"
+    - "AVIF"
+  browser_support:
+    chrome: "latest 2"
+    firefox: "latest 2"
+    safari: "latest 2"
+    edge: "latest 2"
+    ios_safari: "14+"
+    android_chrome: "latest"
+
+anti_patterns:
+  fonts:
+    - "Inter"
+    - "Roboto"
+    - "Arial"
+    - "Space Grotesk"
+  colors:
+    - "紫グラデーション on 白背景"
+    - "ピンク・パステルカラー中心の配色"
+  effects:
+    - "過剰なドロップシャドウ"
+    - "グロー効果"
+    - "キラキラ・スパークルエフェクト"
+    - "ネオングラデーション"
+  layout:
+    - "予測可能なテンプレートパターン"
+  tone:
+    - "エンターテインメント/美容アプリ的な美学"
+    - "過度にカラフルまたは遊び心のあるデザイン"
+    - "サイバーパンク風の演出"
+  components:
+    - "円形プログレスバーの安直な使用"
