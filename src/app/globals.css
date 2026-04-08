@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Colors - Primary */
+    --primary: #1C2127;
+    --secondary: #F8FAFC;
+    --accent: #0891B2;
+    --accent-secondary: #059669;
+    --accent-tertiary: #D97706;
+    --muted: #94A3B8;
+    --subtle: #E2E8F0;
+    --danger: #DC2626;
+    --surface: #FFFFFF;
+
+    /* Colors - Background & Text */
+    --background: #F8FAFC;
+    --text-primary: #1E293B;
+    --text-secondary: #64748B;
+
+    /* Colors - Border */
+    --border: #E2E8F0;
+
+    /* Score Colors (Rank 1-10) */
+    --score-rank-1: #DC2626;
+    --score-rank-2: #EA580C;
+    --score-rank-3: #D97706;
+    --score-rank-4: #CA8A04;
+    --score-rank-5: #A3A30A;
+    --score-rank-6: #65A30D;
+    --score-rank-7: #16A34A;
+    --score-rank-8: #059669;
+    --score-rank-9: #0891B2;
+    --score-rank-10: #0284C7;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+
+    /* Border Radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    /* Component Radius */
+    --radius-button: 8px;
+    --radius-card: 12px;
+    --radius-modal: 16px;
+    --radius-input: 8px;
+    --radius-image: 8px;
+    --radius-score-display: 12px;
+  }
+
+  .dark {
+    --background: #0F172A;
+    --surface: #1E293B;
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --border: #334155;
+    --accent: #22D3EE;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: var(--font-noto-sans-jp), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-dm-sans), system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -1,0 +1,45 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows", "darwin-arm64"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Diagnosis {
+  id              String   @id @default(cuid())
+  rank            Int      @db.SmallInt  // 1-10
+  advice          Json     // Array of advice items
+  engineType      String   @map("engine_type")
+  features        Json?    // Raw features from engine (not shown to user)
+  processingTimeMs Int?    @map("processing_time_ms")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("diagnoses")
+}
+
+model TrainingLabel {
+  id        String   @id @default(cuid())
+  imageUrl  String   @map("image_url")
+  rank      Int      @db.SmallInt  // 1-10
+  labeledBy String?  @map("labeled_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("training_labels")
+}
+
+model EngineConfig {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  type      String   // e.g., "similarity", "cnn", "embedding"
+  version   String
+  isActive  Boolean  @default(false) @map("is_active")
+  config    Json?    // Engine-specific configuration
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("engine_configs")
+}
