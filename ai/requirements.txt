@@ -1,10 +1,11 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
 python-multipart==0.0.9
-Pillow==10.4.0
+Pillow==10.2.0
 numpy==1.26.4
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.3.0+cpu
-torchvision==0.18.0+cpu
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
 pydantic==2.8.0
 opencv-python-headless==4.10.0.84
+facenet-pytorch==2.6.0

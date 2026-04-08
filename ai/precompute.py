@@ -1,62 +1,59 @@
 """
-Precompute feature vectors from training images using ResNet18.
-Face-cropped + per-person averaged features saved to /models/features.npz
+Precompute face embeddings from training images using FaceNet (InceptionResnetV1).
+
+- Face detection: MTCNN
+- Embedding: InceptionResnetV1 pretrained on VGGFace2
+- Data augmentation: original, horizontal flip, brightness/contrast variants
+- Output: /models/features.npz with all augmented embeddings
 """
 
 import csv
 import os
 import glob
 import numpy as np
-import cv2
-from PIL import Image
+from PIL import Image, ImageEnhance
 import torch
-import torchvision.transforms as T
-from torchvision.models import resnet18, ResNet18_Weights
-
-face_cascade = cv2.CascadeClassifier(
-    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-)
+from facenet_pytorch import MTCNN, InceptionResnetV1
 
 
-def get_model():
-    model = resnet18(weights=ResNet18_Weights.DEFAULT)
-    model.fc = torch.nn.Identity()
-    model.eval()
-    return model
+def get_models(device: str = "cpu"):
+    mtcnn = MTCNN(
+        image_size=160,
+        margin=20,
+        min_face_size=40,
+        thresholds=[0.6, 0.7, 0.7],
+        post_process=True,
+        device=device,
+        keep_all=False,
+    )
+    embedder = InceptionResnetV1(pretrained="vggface2").eval().to(device)
+    return mtcnn, embedder
 
 
-def get_transform():
-    return T.Compose([
-        T.Resize(256),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+def augmentations(face_tensor: torch.Tensor) -> list[torch.Tensor]:
+    """
+    Generate augmented variants from a face tensor (C, H, W) in [-1, 1].
+    Returns list of 5 tensors: original + flip + bright+ + bright- + contrast+.
+    """
+    variants = [face_tensor]
 
+    # Horizontal flip
+    variants.append(torch.flip(face_tensor, dims=[2]))
 
-def crop_face(img: Image.Image, margin: float = 0.4) -> Image.Image | None:
-    """Detect and crop the largest face with margin. Returns None if no face."""
-    img_array = np.array(img)
-    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    # Brightness up (+15%)
+    bright_up = torch.clamp(face_tensor * 1.15, -1.0, 1.0)
+    variants.append(bright_up)
 
-    if len(faces) == 0:
-        return None
+    # Brightness down (-15%)
+    bright_down = torch.clamp(face_tensor * 0.85, -1.0, 1.0)
+    variants.append(bright_down)
 
-    # Pick largest face
-    areas = [w * h for (x, y, w, h) in faces]
-    x, y, w, h = faces[np.argmax(areas)]
+    # Contrast up: scale around mean
+    mean = face_tensor.mean()
+    contrast_up = torch.clamp((face_tensor - mean) * 1.2 + mean, -1.0, 1.0)
+    variants.append(contrast_up)
 
-    # Add margin
-    img_h, img_w = img_array.shape[:2]
-    mx = int(w * margin)
-    my = int(h * margin)
-    x1 = max(0, x - mx)
-    y1 = max(0, y - my)
-    x2 = min(img_w, x + w + mx)
-    y2 = min(img_h, y + h + my)
-
-    return img.crop((x1, y1, x2, y2))
+    return variants
 
 
 def load_labels(csv_path: str) -> dict[int, dict]:
@@ -82,6 +79,7 @@ def find_images(training_dir: str, photo_id: int) -> list[str]:
     return images
 
 
+@torch.no_grad()
 def main():
     training_dir = os.environ.get("TRAINING_DIR", "/training-data")
     model_dir = os.environ.get("MODEL_DIR", "/models")
@@ -91,81 +89,76 @@ def main():
         print(f"ERROR: {csv_path} not found")
         return
 
-    print("Loading model...")
-    model = get_model()
-    transform = get_transform()
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    print("Loading FaceNet (MTCNN + InceptionResnetV1 VGGFace2)...")
+    mtcnn, embedder = get_models(device)
 
     print("Loading labels...")
     labels = load_labels(csv_path)
     print(f"  Found {len(labels)} labeled entries")
 
-    # --- Phase 1: Extract per-image features (face-cropped) ---
-    person_features: dict[int, list[np.ndarray]] = {}
+    all_features = []
+    all_ranks = []
+    all_wages = []
+    all_ids = []
+
     face_found = 0
     face_missed = 0
 
-    print("Extracting face-cropped features...")
+    print("Extracting FaceNet embeddings with augmentation...")
     for pid, info in sorted(labels.items()):
         images = find_images(training_dir, pid)
         if not images:
             print(f"  WARNING: No images found for photo_id={pid}")
             continue
 
-        person_features[pid] = []
         for img_path in images:
             try:
                 img = Image.open(img_path).convert("RGB")
-                face_img = crop_face(img)
+                face_tensor = mtcnn(img)
 
-                if face_img is None:
+                if face_tensor is None:
                     face_missed += 1
-                    # Fallback: use center crop of original
-                    face_img = img
-                else:
-                    face_found += 1
+                    continue
+                face_found += 1
 
-                tensor = transform(face_img).unsqueeze(0)
-                with torch.no_grad():
-                    feat = model(tensor).squeeze().numpy()
-                feat = feat / (np.linalg.norm(feat) + 1e-8)
-                person_features[pid].append(feat)
+                # Generate augmented variants
+                variants = augmentations(face_tensor)
+
+                # Batch embed all variants
+                batch = torch.stack(variants).to(device)
+                embeddings = embedder(batch).cpu().numpy()
+
+                # L2 normalize each
+                for emb in embeddings:
+                    emb = emb / (np.linalg.norm(emb) + 1e-8)
+                    all_features.append(emb)
+                    all_ranks.append(info["rank"])
+                    all_wages.append(info["wage"])
+                    all_ids.append(pid)
 
             except Exception as e:
                 print(f"  ERROR processing {img_path}: {e}")
 
     print(f"  Face detected: {face_found}, missed: {face_missed}")
 
-    # --- Phase 2: Average per person ---
-    all_features = []
-    all_ranks = []
-    all_wages = []
-    all_ids = []
-
-    print("Averaging per-person features...")
-    for pid, feats in sorted(person_features.items()):
-        if not feats:
-            continue
-        avg_feat = np.mean(feats, axis=0)
-        avg_feat = avg_feat / (np.linalg.norm(avg_feat) + 1e-8)
-
-        all_features.append(avg_feat)
-        all_ranks.append(labels[pid]["rank"])
-        all_wages.append(labels[pid]["wage"])
-        all_ids.append(pid)
-
     if not all_features:
         print("ERROR: No features extracted")
         return
 
-    features = np.stack(all_features)
-    ranks = np.array(all_ranks)
-    wages = np.array(all_wages)
-    ids = np.array(all_ids)
+    features = np.stack(all_features).astype(np.float32)
+    ranks = np.array(all_ranks, dtype=np.int32)
+    wages = np.array(all_wages, dtype=np.int32)
+    ids = np.array(all_ids, dtype=np.int32)
 
     os.makedirs(model_dir, exist_ok=True)
     output_path = os.path.join(model_dir, "features.npz")
     np.savez(output_path, features=features, ranks=ranks, wages=wages, ids=ids)
-    print(f"Saved {len(features)} person-averaged vectors to {output_path}")
+    print(f"Saved {len(features)} embeddings to {output_path}")
+    print(f"  Unique persons: {len(set(ids.tolist()))}")
+    print(f"  Avg embeddings per person: {len(features) / max(1, len(set(ids.tolist()))):.1f}")
     print(f"  Rank distribution: {dict(zip(*np.unique(ranks, return_counts=True)))}")
 
 
