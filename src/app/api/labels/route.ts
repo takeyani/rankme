@@ -118,6 +118,18 @@ export async function GET(request: NextRequest) {
  * Accepts FormData with: image (File), rank (string), labeledBy? (string)
  * OR JSON body: { imageUrl, rank, labeledBy? }
  */
+// Sanitize free-text input to prevent XSS / control character injection.
+const MAX_LABELED_BY_LENGTH = 64
+function sanitizeLabeledBy(value: string | null): string | null {
+  if (!value) return null
+  // Strip control chars and HTML special chars; cap length
+  const cleaned = value.replace(/[<>\u0000-\u001F\u007F]/g, "").trim()
+  return cleaned ? cleaned.slice(0, MAX_LABELED_BY_LENGTH) : null
+}
+
+const ALLOWED_LABEL_MIME = new Set(["image/jpeg", "image/png"])
+const MAX_LABEL_FILE_SIZE = 5 * 1024 * 1024
+
 export async function POST(request: NextRequest) {
   const contentType = request.headers.get("content-type") ?? ""
 
@@ -139,6 +151,14 @@ export async function POST(request: NextRequest) {
       return errorResponse("NO_FILE_PROVIDED", "画像ファイルが指定されていません", 400)
     }
 
+    if (!ALLOWED_LABEL_MIME.has(file.type)) {
+      return errorResponse("INVALID_FILE_TYPE", "JPEG または PNG 形式の画像を選択してください", 400)
+    }
+
+    if (file.size > MAX_LABEL_FILE_SIZE) {
+      return errorResponse("FILE_TOO_LARGE", "ファイルサイズは 5MB 以下にしてください", 400)
+    }
+
     // Store as data URL for simplicity (no external storage configured)
     const buffer = await file.arrayBuffer()
     const base64 = Buffer.from(buffer).toString("base64")
@@ -151,8 +171,8 @@ export async function POST(request: NextRequest) {
     rankNum = parseInt(rankStr, 10)
 
     const labeledByStr = formData.get("labeledBy")
-    if (labeledByStr && typeof labeledByStr === "string") {
-      labeledBy = labeledByStr.trim() || null
+    if (typeof labeledByStr === "string") {
+      labeledBy = sanitizeLabeledBy(labeledByStr)
     }
   } else {
     // Handle JSON body
@@ -172,7 +192,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("INVALID_RANK", "ランクは 1〜10 の範囲で指定してください", 400)
     }
     rankNum = typeof body.rank === "string" ? parseInt(body.rank, 10) : body.rank
-    labeledBy = body.labeledBy?.trim() || null
+    labeledBy = sanitizeLabeledBy(body.labeledBy ?? null)
   }
 
   if (!Number.isInteger(rankNum) || rankNum < 1 || rankNum > 10) {

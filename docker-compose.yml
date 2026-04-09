@@ -8,7 +8,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://rankme:rankme@db:5432/rankme
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-rankme}:${POSTGRES_PASSWORD:-rankme}@db:5432/${POSTGRES_DB:-rankme}
       - AI_SERVICE_URL=http://ai:8000
       - RANKME_ENGINE=${RANKME_ENGINE:-similarity_v1}
     depends_on:
@@ -52,9 +52,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: rankme
-      POSTGRES_PASSWORD: rankme
-      POSTGRES_DB: rankme
+      POSTGRES_USER: ${POSTGRES_USER:-rankme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rankme}
+      POSTGRES_DB: ${POSTGRES_DB:-rankme}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

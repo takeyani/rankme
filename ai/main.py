@@ -1,8 +1,6 @@
 import os
 import io
 import logging
-import numpy as np
-import cv2
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -12,35 +10,37 @@ from engine_registry import EngineRegistry
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="RankMe AI Service", version="0.1.0")
+# Cap Pillow decompression size to prevent decompression bombs (~6000x6000)
+Image.MAX_IMAGE_PIXELS = 32_000_000
 
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
-allowed_origins = [o.strip() for o in allowed_origins_env.split(",")] if allowed_origins_env != "*" else ["*"]
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+MAX_IMAGE_DIMENSION = 4096       # 4K, prevents decompression bombs
+
+app = FastAPI(title="RankMe AI Service", version="2.0.0")
+
+# CORS: lock down to explicit allowlist if ALLOWED_ORIGINS is set
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*").strip()
+if allowed_origins_env == "*":
+    # Permissive mode (development); credentials must be False
+    allowed_origins = ["*"]
+    allow_credentials = False
+    logger.warning("CORS in permissive mode (allow all origins). Set ALLOWED_ORIGINS for production.")
+else:
+    allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip() and o.strip() != "*"]
+    allow_credentials = True
+    logger.info(f"CORS locked to: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=allow_credentials,
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 # Engine Registry
 registry = EngineRegistry()
 ACTIVE_ENGINE = os.getenv("RANKME_ENGINE", "similarity_v1")
-
-# Face detector
-face_cascade = cv2.CascadeClassifier(
-    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-)
-
-
-def detect_face(image: Image.Image) -> bool:
-    """Return True if at least one face is detected."""
-    img_array = np.array(image)
-    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-    return len(faces) > 0
 
 
 class PredictResponse(BaseModel):
@@ -62,26 +62,46 @@ async def predict(image: UploadFile = File(...)):
     if image.content_type not in ["image/jpeg", "image/png"]:
         raise HTTPException(status_code=400, detail="Only JPEG and PNG images are supported")
 
-    # Read and validate image
+    # Read and validate image size
     contents = await image.read()
-    if len(contents) > 5 * 1024 * 1024:  # 5MB limit
+    if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="Image size must be less than 5MB")
 
+    # Decode image with strict bounds
     try:
-        img = Image.open(io.BytesIO(contents)).convert("RGB")
+        img = Image.open(io.BytesIO(contents))
+        # Verify dimensions BEFORE full decode to prevent decompression bombs
+        if img.width > MAX_IMAGE_DIMENSION or img.height > MAX_IMAGE_DIMENSION:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Image resolution too large (max {MAX_IMAGE_DIMENSION}x{MAX_IMAGE_DIMENSION})",
+            )
+        img = img.convert("RGB")
+    except HTTPException:
+        raise
+    except Image.DecompressionBombError:
+        raise HTTPException(status_code=400, detail="Image too large to decode")
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # Face detection
-    if not detect_face(img):
-        raise HTTPException(status_code=400, detail="顔が検出できませんでした。人の顔が写った画像をアップロードしてください")
-
-    # Get engine and predict
+    # Get engine and predict (face detection happens inside MTCNN)
     engine = registry.get_engine(ACTIVE_ENGINE)
     if engine is None:
-        raise HTTPException(status_code=500, detail=f"Engine '{ACTIVE_ENGINE}' not found")
+        logger.error(f"Engine '{ACTIVE_ENGINE}' not found")
+        raise HTTPException(status_code=500, detail="AI engine unavailable")
 
-    result = engine.predict(img)
+    try:
+        result = engine.predict(img)
+    except Exception as e:
+        logger.exception("Engine prediction failed")
+        raise HTTPException(status_code=500, detail="AI inference failed")
+
+    # Check if MTCNN detected a face
+    if result.get("features", {}).get("error") == "face_not_detected":
+        raise HTTPException(
+            status_code=400,
+            detail="顔が検出できませんでした。人の顔が写った画像をアップロードしてください",
+        )
 
     return PredictResponse(
         rank=result["rank"],

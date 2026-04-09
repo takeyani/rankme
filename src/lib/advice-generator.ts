@@ -152,9 +152,12 @@ export function generateAdvice(
   const adviceItems: { title: string; description: string }[] = []
 
   // Map improvement_areas to advice text if available
-  if (features?.improvement_areas && features.improvement_areas.length > 0) {
+  // Sanitize improvement_areas: only accept allowlisted keys (defense in depth)
+  const VALID_AREAS = new Set(Object.keys(IMPROVEMENT_MAP))
+  if (features?.improvement_areas && Array.isArray(features.improvement_areas)) {
     for (const area of features.improvement_areas) {
       if (adviceItems.length >= count) break
+      if (typeof area !== "string" || !VALID_AREAS.has(area)) continue
       const mapped = IMPROVEMENT_MAP[area]
       if (mapped) {
         adviceItems.push(mapped)

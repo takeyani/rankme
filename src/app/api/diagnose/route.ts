@@ -7,13 +7,41 @@ import {
   type AdviceContext,
 } from "@/lib/advice-generator"
 
+// Allowlist of permitted AI service hosts (SSRF protection).
+// Add new deployments here when needed.
+const ALLOWED_AI_HOSTS = new Set([
+  "localhost",
+  "127.0.0.1",
+  "ai", // Docker Compose service name
+  "takeyani-rankme-ai.hf.space",
+])
+
 function getAiServiceUrl(): string {
-  const url = process.env.AI_SERVICE_URL
-  if (url) return url
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("AI_SERVICE_URL is required in production")
+  const raw = process.env.AI_SERVICE_URL
+  if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AI_SERVICE_URL is required in production")
+    }
+    return "http://localhost:8000"
   }
-  return "http://localhost:8000"
+
+  // Validate URL parses and host is in allowlist (SSRF protection)
+  let parsed: URL
+  try {
+    parsed = new URL(raw)
+  } catch {
+    throw new Error("AI_SERVICE_URL is not a valid URL")
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("AI_SERVICE_URL must use http or https protocol")
+  }
+
+  if (!ALLOWED_AI_HOSTS.has(parsed.hostname)) {
+    throw new Error(`AI_SERVICE_URL host '${parsed.hostname}' is not in the allowlist`)
+  }
+
+  return raw
 }
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png"]
@@ -133,11 +161,12 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Log full upstream error server-side; do NOT leak details to client.
+      console.error("AI service error:", statusCode, aiError)
       return errorResponse(
         "AI_INFERENCE_FAILED",
         "AI推論中にエラーが発生しました",
-        500,
-        aiError ? { upstream: aiError } : undefined
+        500
       )
     }
 
