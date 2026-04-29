@@ -8,13 +8,18 @@ datasource db {
 }
 
 model Diagnosis {
-  id              String   @id @default(cuid())
-  rank            Int      @db.SmallInt  // 1-10
-  advice          Json     // Array of advice items
-  engineType      String   @map("engine_type")
-  features        Json?    // Raw features from engine (not shown to user)
-  processingTimeMs Int?    @map("processing_time_ms")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id              String    @id @default(cuid())
+  rank            Int       @db.SmallInt  // 1-10
+  advice          Json      // Array of advice items
+  engineType      String    @map("engine_type")
+  features        Json?     // Raw features from engine (not shown to user)
+  processingTimeMs Int?     @map("processing_time_ms")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // ユーザーが「想定外だった」と修正したランク。null = フィードバック未実施
+  correctedRank   Int?      @db.SmallInt @map("corrected_rank")
+  correctionNote  String?   @map("correction_note")
+  correctedAt     DateTime? @map("corrected_at")
 
   @@map("diagnoses")
 }

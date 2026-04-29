@@ -115,3 +115,7 @@ gitleaks*.json
 gitleaks*.log
 # Embedding model cache
 .fastembed_cache/
+
+# Training data (large image datasets, kept out of git)
+rankme/training-data/
+rankme/models/*.npz

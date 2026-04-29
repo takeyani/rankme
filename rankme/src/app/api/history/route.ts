@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         rank: true,
+        correctedRank: true,
+        correctedAt: true,
         createdAt: true,
       },
     })
@@ -74,6 +76,8 @@ export async function GET(request: NextRequest) {
       items: resultItems.map((item) => ({
         diagnosisId: item.id,
         rank: item.rank,
+        correctedRank: item.correctedRank,
+        correctedAt: item.correctedAt?.toISOString() ?? null,
         createdAt: item.createdAt.toISOString(),
       })),
       pagination: {
