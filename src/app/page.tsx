@@ -6,6 +6,7 @@ import { Upload, AlertCircle, RefreshCw, History, ImageIcon } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CorrectionFeedback } from "@/components/rankme/correction-feedback";
 
 // --- Types ---
 
@@ -335,6 +336,12 @@ function DiagnosisReport({ result, imageUrl }: { result: DiagnosisResult; imageU
           ))}
         </ul>
       </div>
+
+      {/* User Correction Feedback */}
+      <CorrectionFeedback
+        diagnosisId={result.diagnosisId}
+        originalRank={result.rank}
+      />
 
       {/* Disclaimer */}
       <div className="space-y-xs text-center text-caption text-[var(--text-secondary)]">

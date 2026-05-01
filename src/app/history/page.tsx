@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface HistoryItem {
   diagnosisId: string;
   rank: number;
+  correctedRank: number | null;
+  correctedAt: string | null;
   createdAt: string;
 }
 
@@ -90,6 +92,11 @@ function HistoryCard({ item }: { item: HistoryItem }) {
             <div>
               <p className="text-body-sm font-medium text-[var(--text-primary)]">
                 ランク {item.rank} / 10
+                {item.correctedRank !== null && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-caption font-medium text-[var(--accent)]">
+                    修正 → {item.correctedRank}
+                  </span>
+                )}
               </p>
               <p className="text-caption text-[var(--text-secondary)]">
                 {formatDate(item.createdAt)}
