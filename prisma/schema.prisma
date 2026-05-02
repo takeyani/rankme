@@ -1,11 +1,14 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "windows", "darwin-arm64"]
+  binaryTargets = ["native", "windows", "darwin-arm64", "debian-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Supabase via Vercel Marketplace sets these env vars automatically.
+  // Fall back to DATABASE_URL for local dev (docker-compose).
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 model Diagnosis {
