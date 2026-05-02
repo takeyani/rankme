@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = "force-dynamic"
+
 function getAiServiceUrl(): string {
   const url = process.env.AI_SERVICE_URL
   if (url) return url
