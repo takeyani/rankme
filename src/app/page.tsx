@@ -530,13 +530,22 @@ export default function HomePage() {
             )}
           </Button>
 
-          {/* History Link */}
-          <button
-            onClick={() => router.push("/history")}
-            className="inline-block text-body-sm text-[var(--text-secondary)] underline-offset-4 transition-colors duration-fast hover:text-[var(--accent)] hover:underline"
-          >
-            履歴を見る
-          </button>
+          {/* History & Learn Links */}
+          <div className="flex items-center justify-center gap-md text-body-sm">
+            <button
+              onClick={() => router.push("/history")}
+              className="text-[var(--text-secondary)] underline-offset-4 transition-colors duration-fast hover:text-[var(--accent)] hover:underline"
+            >
+              履歴を見る
+            </button>
+            <span className="text-[var(--muted)]">·</span>
+            <button
+              onClick={() => router.push("/learn")}
+              className="text-[var(--text-secondary)] underline-offset-4 transition-colors duration-fast hover:text-[var(--accent)] hover:underline"
+            >
+              学習モード
+            </button>
+          </div>
         </div>
       )}
     </main>
