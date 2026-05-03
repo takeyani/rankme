@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, History } from "lucide-react";
+import { ArrowLeft, History } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HistoryCorrectionEditor } from "@/components/rankme/history-correction-editor";
 
 // --- Types ---
 
@@ -73,46 +74,56 @@ function HistorySkeletons() {
 
 // --- History Card ---
 
-function HistoryCard({ item }: { item: HistoryItem }) {
+function HistoryCard({
+  item,
+  onCorrectionSaved,
+}: {
+  item: HistoryItem;
+  onCorrectionSaved: (diagnosisId: string, correctedRank: number) => void;
+}) {
   return (
-    <Link href={`/history/${item.diagnosisId}`}>
-      <Card className="transition-colors duration-normal hover:border-[var(--accent)]/50">
-        <CardContent className="flex items-center justify-between p-md">
-          <div className="flex items-center gap-lg">
-            {/* Rank Badge */}
-            <div
-              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[var(--radius-score-display)] font-score text-h3 font-bold tabular-nums"
-              style={{ color: getScoreColor(item.rank) }}
-              aria-label={`ランク ${item.rank}`}
-            >
-              {item.rank}
-            </div>
-
-            {/* Date & Rank label */}
-            <div>
-              <p className="text-body-sm font-medium text-[var(--text-primary)]">
-                ランク {item.rank} / 10
-                {item.correctedRank !== null && (
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-caption font-medium text-[var(--accent)]">
-                    修正 → {item.correctedRank}
-                  </span>
-                )}
-              </p>
-              <p className="text-caption text-[var(--text-secondary)]">
-                {formatDate(item.createdAt)}
-              </p>
-            </div>
+    <Card className="transition-colors duration-normal hover:border-[var(--accent)]/50">
+      <CardContent className="flex flex-col gap-md p-md sm:flex-row sm:items-center sm:justify-between">
+        <Link
+          href={`/history/${item.diagnosisId}`}
+          className="flex flex-1 items-center gap-lg"
+        >
+          {/* Rank Badge */}
+          <div
+            className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[var(--radius-score-display)] font-score text-h3 font-bold tabular-nums"
+            style={{ color: getScoreColor(item.rank) }}
+            aria-label={`ランク ${item.rank}`}
+          >
+            {item.rank}
           </div>
 
-          {/* Chevron */}
-          <ChevronRight
-            className="h-5 w-5 text-[var(--muted)]"
-            strokeWidth={1.5}
-            aria-hidden="true"
+          {/* Date & Rank label */}
+          <div>
+            <p className="text-body-sm font-medium text-[var(--text-primary)]">
+              ランク {item.rank} / 10
+              {item.correctedRank !== null && (
+                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-caption font-medium text-[var(--accent)]">
+                  修正 → {item.correctedRank}
+                </span>
+              )}
+            </p>
+            <p className="text-caption text-[var(--text-secondary)]">
+              {formatDate(item.createdAt)}
+            </p>
+          </div>
+        </Link>
+
+        {/* Inline correction editor */}
+        <div className="flex flex-shrink-0 sm:items-center">
+          <HistoryCorrectionEditor
+            diagnosisId={item.diagnosisId}
+            originalRank={item.rank}
+            currentCorrectedRank={item.correctedRank}
+            onSaved={(rank) => onCorrectionSaved(item.diagnosisId, rank)}
           />
-        </CardContent>
-      </Card>
-    </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -258,8 +269,27 @@ export default function HistoryPage() {
           <EmptyState />
         ) : (
           <div className="space-y-sm">
+            <p className="text-caption text-[var(--text-secondary)]">
+              修正したい結果は右側の「修正」ボタンから本来のランクを記録できます。修正は学習モードに即時反映されます。
+            </p>
             {items.map((item) => (
-              <HistoryCard key={item.diagnosisId} item={item} />
+              <HistoryCard
+                key={item.diagnosisId}
+                item={item}
+                onCorrectionSaved={(diagnosisId, correctedRank) => {
+                  setItems((prev) =>
+                    prev.map((it) =>
+                      it.diagnosisId === diagnosisId
+                        ? {
+                            ...it,
+                            correctedRank,
+                            correctedAt: new Date().toISOString(),
+                          }
+                        : it,
+                    ),
+                  );
+                }}
+              />
             ))}
 
             {/* Load More */}
