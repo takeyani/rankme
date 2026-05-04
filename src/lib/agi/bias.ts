@@ -10,10 +10,11 @@ import { prisma } from "@/lib/prisma"
  * 例: AIが「5」と出した過去20件のうち、ユーザー修正の平均が+1.3 → AIが「5」を返したら
  * 学習補正後は約6.3 → 6にクリップ。
  *
- * 補正は ±1.5 にクリップ（暴走防止）、サンプル3件未満のランクはバイアス0。
+ * 補正は ±1.5 にクリップ（暴走防止）、1件でもサンプルがあればそのランクに反映する。
  */
 
-const MIN_SAMPLES_PER_RANK = 3
+// 1件でもフィードバックがあれば参考に補正をかける（少サンプル時の過適合は MAX_BIAS のクリップで抑制）
+const MIN_SAMPLES_PER_RANK = 1
 const MAX_BIAS = 1.5
 
 export type BiasMap = Record<number, { bias: number; samples: number }>
