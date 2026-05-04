@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { computeBiasMap } from "@/lib/agi/bias"
 
 export const dynamic = "force-dynamic"
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic"
  */
 export async function GET() {
   try {
-    const [labelsTotal, labelsByRank, diagTotal, corrected] = await Promise.all([
+    const [labelsTotal, labelsByRank, diagTotal, corrected, biasMap] = await Promise.all([
       prisma.trainingLabel.count(),
       prisma.trainingLabel.groupBy({
         by: ["rank"],
@@ -22,6 +23,7 @@ export async function GET() {
         where: { correctedRank: { not: null } },
         select: { rank: true, correctedRank: true, correctedAt: true },
       }),
+      computeBiasMap(),
     ])
 
     // labels by rank (1〜10)
@@ -74,6 +76,7 @@ export async function GET() {
         lastWeek,
         lastMonth,
       },
+      biasMap, // { 1: {bias, samples}, ..., 10: {...} }
     })
   } catch (err) {
     return NextResponse.json(

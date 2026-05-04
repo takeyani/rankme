@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { computeBiasMap, applyBias } from "@/lib/agi/bias"
 import {
   generateAdvice,
   formatAdviceForResponse,
@@ -188,19 +189,33 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // --- 5. Generate improvement advice ---
+  // --- 5. Apply learned bias from past user corrections ---
+  // (オンライン学習: 過去のフィードバックから AI生ランクごとの平均偏差を計算し、
+  //  今回のAIランクに加算する。サンプル3件未満のランクはバイアス0)
+  let biasMap
+  try {
+    biasMap = await computeBiasMap()
+  } catch {
+    biasMap = {}
+  }
+  const aiRawRank = aiResponse.rank
+  const { adjusted: finalRank, bias: appliedBias } = applyBias(aiRawRank, biasMap)
+
+  // --- 6. Generate improvement advice (use final/adjusted rank) ---
   const adviceContext: AdviceContext = aiResponse.advice_context ?? {
     improvement_areas: aiResponse.features?.improvement_areas,
   }
-  const adviceItems = generateAdvice(aiResponse.rank, adviceContext)
+  const adviceItems = generateAdvice(finalRank, adviceContext)
   const formattedAdvice = formatAdviceForResponse(adviceItems)
 
-  // --- 6. Save diagnosis to DB ---
+  // --- 7. Save diagnosis to DB ---
   let diagnosis
   try {
     diagnosis = await prisma.diagnosis.create({
       data: {
-        rank: aiResponse.rank,
+        rank: finalRank,
+        aiRawRank: aiRawRank,
+        biasApplied: appliedBias,
         advice: formattedAdvice as unknown as Prisma.InputJsonValue,
         engineType: aiResponse.engine ?? "similarity_v1",
         features: (aiResponse.features ?? aiResponse.advice_context ?? null) as unknown as Prisma.InputJsonValue,
@@ -215,11 +230,13 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // --- 7. Return response ---
+  // --- 8. Return response ---
   return NextResponse.json(
     {
       diagnosisId: diagnosis.id,
       rank: diagnosis.rank,
+      aiRawRank,
+      biasApplied: appliedBias,
       advice: formattedAdvice,
       engineType: diagnosis.engineType,
       createdAt: diagnosis.createdAt.toISOString(),

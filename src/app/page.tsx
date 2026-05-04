@@ -19,6 +19,8 @@ interface Advice {
 interface DiagnosisResult {
   diagnosisId: string;
   rank: number;
+  aiRawRank?: number;
+  biasApplied?: number;
   advice: Advice[];
   createdAt: string;
 }
@@ -336,6 +338,34 @@ function DiagnosisReport({ result, imageUrl }: { result: DiagnosisResult; imageU
           ))}
         </ul>
       </div>
+
+      {/* Bias info badge - shown only if learned bias was applied */}
+      {result.aiRawRank !== undefined &&
+        result.biasApplied !== undefined &&
+        result.biasApplied !== 0 && (
+          <div
+            role="note"
+            className="rounded-md border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-md py-sm text-center"
+          >
+            <p className="text-caption text-[var(--text-secondary)]">
+              AI生スコア{" "}
+              <span className="font-mono font-medium text-[var(--text-primary)]">
+                {result.aiRawRank}
+              </span>{" "}
+              に学習バイアス{" "}
+              <span className="font-mono font-medium text-[var(--accent)]">
+                {result.biasApplied > 0 ? `+${result.biasApplied}` : result.biasApplied}
+              </span>{" "}
+              を適用 →{" "}
+              <span className="font-mono font-medium text-[var(--text-primary)]">
+                {result.rank}
+              </span>
+            </p>
+            <p className="mt-1 text-caption text-[var(--text-secondary)]/80">
+              過去のフィードバックから自動で判定を補正しています。
+            </p>
+          </div>
+        )}
 
       {/* User Correction Feedback */}
       <CorrectionFeedback

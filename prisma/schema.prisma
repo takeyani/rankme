@@ -13,7 +13,9 @@ datasource db {
 
 model Diagnosis {
   id              String    @id @default(cuid())
-  rank            Int       @db.SmallInt  // 1-10
+  rank            Int       @db.SmallInt  // 1-10（学習バイアス補正後・最終表示値）
+  aiRawRank       Int?      @db.SmallInt @map("ai_raw_rank")  // AIの生スコア（補正前）
+  biasApplied     Float?    @map("bias_applied")  // 適用したバイアス値
   advice          Json      // Array of advice items
   engineType      String    @map("engine_type")
   features        Json?     // Raw features from engine (not shown to user)
