@@ -23,6 +23,7 @@ interface Summary {
     lastWeek: number
     lastMonth: number
   }
+  biasMap: Record<string, { bias: number; samples: number }>
 }
 
 const RANK_COLORS: Record<number, string> = {
@@ -162,6 +163,25 @@ export default function LearnPage() {
             ) : summary ? (
               <RankDistributionBars data={summary.trainingLabels.byRank} />
             ) : null}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Active learned bias */}
+      <section aria-label="現在の学習バイアス" className="mb-xl">
+        <h2 className="mb-md font-heading text-h3 font-semibold text-[var(--text-primary)]">
+          現在の学習バイアス（次回判定に自動適用）
+        </h2>
+        <Card>
+          <CardContent className="p-md">
+            {loading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : summary ? (
+              <BiasTable data={summary.biasMap} />
+            ) : null}
+            <p className="mt-sm text-caption text-[var(--text-secondary)]">
+              ユーザーの修正フィードバックから「AI生スコアごとの平均偏差」を算出し、次回の診断時にAIスコアへ自動加算します。3件未満のランクは0、|±1.5|を上限にクリップ。
+            </p>
           </CardContent>
         </Card>
       </section>
@@ -361,6 +381,57 @@ function RankDistributionBars({ data }: { data: Record<string, number> }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function BiasTable({ data }: { data: Record<string, { bias: number; samples: number }> }) {
+  const ranks = Array.from({ length: 10 }, (_, i) => i + 1)
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-body-sm">
+        <thead>
+          <tr className="border-b border-[var(--muted)]/20 text-caption text-[var(--text-secondary)]">
+            <th className="px-2 py-2 text-left font-medium">AI生ランク</th>
+            {ranks.map((r) => (
+              <th key={r} className="px-2 py-2 text-center font-mono">
+                {r}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="px-2 py-2 text-[var(--text-secondary)]">バイアス</td>
+            {ranks.map((r) => {
+              const e = data[r] ?? { bias: 0, samples: 0 }
+              const sign = e.bias > 0 ? "+" : ""
+              const color =
+                e.bias > 0
+                  ? "text-[var(--score-rank-8)]"
+                  : e.bias < 0
+                    ? "text-[var(--score-rank-3)]"
+                    : "text-[var(--text-secondary)]"
+              return (
+                <td key={r} className={`px-2 py-2 text-center font-mono ${color}`}>
+                  {e.samples > 0 ? `${sign}${e.bias}` : "—"}
+                </td>
+              )
+            })}
+          </tr>
+          <tr>
+            <td className="px-2 py-2 text-[var(--text-secondary)]">サンプル数</td>
+            {ranks.map((r) => {
+              const e = data[r] ?? { bias: 0, samples: 0 }
+              return (
+                <td key={r} className="px-2 py-2 text-center font-mono text-caption text-[var(--text-secondary)]">
+                  {e.samples}
+                </td>
+              )
+            })}
+          </tr>
+        </tbody>
+      </table>
     </div>
   )
 }
