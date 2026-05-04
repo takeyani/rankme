@@ -180,7 +180,7 @@ export default function LearnPage() {
               <BiasTable data={summary.biasMap} />
             ) : null}
             <p className="mt-sm text-caption text-[var(--text-secondary)]">
-              ユーザーの修正フィードバックから「AI生スコアごとの平均偏差」を算出し、次回の診断時にAIスコアへ自動加算します。3件未満のランクは0、|±1.5|を上限にクリップ。
+              ユーザーの修正フィードバックから「AI生スコアごとの平均偏差」を算出し、次回の診断時にAIスコアへ自動加算します。1件のフィードバックでも参考に補正、|±1.5|を上限にクリップ。
             </p>
           </CardContent>
         </Card>
