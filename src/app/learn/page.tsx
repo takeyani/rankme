@@ -210,15 +210,23 @@ export default function LearnPage() {
       <section aria-label="学習アクション" className="mb-xl grid grid-cols-1 gap-md md:grid-cols-2">
         <ActionCard
           icon={<Tags className="h-5 w-5" />}
-          title="手動ラベリング"
-          description="教師データを直接追加・編集します。各ランク（1〜10）に画像を割り当て。"
+          title="手動ラベリング / トリアージ"
+          description="教師データを直接追加・編集します。トリアージは既存ラベルをランク別に一覧でき、違和感のあるものをサクサク付け替えできます。"
           action={
-            <Link
-              href="/labeling"
-              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-button)] bg-[var(--accent)] px-4 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition-colors duration-150 hover:bg-[var(--accent)]/90"
-            >
-              ラベリングを開く
-            </Link>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link
+                href="/labeling"
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-[var(--radius-button)] border border-[var(--accent)] bg-white px-4 text-sm font-medium text-[var(--accent)] transition-colors duration-150 hover:bg-[var(--accent)]/5"
+              >
+                ラベリング追加
+              </Link>
+              <Link
+                href="/labeling/triage"
+                className="inline-flex h-10 flex-1 items-center justify-center rounded-[var(--radius-button)] bg-[var(--accent)] px-4 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition-colors duration-150 hover:bg-[var(--accent)]/90"
+              >
+                トリアージを開く
+              </Link>
+            </div>
           }
         />
         <ActionCard
