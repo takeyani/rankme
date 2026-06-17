@@ -8,3 +8,7 @@ torch==2.2.2+cpu
 torchvision==0.17.2+cpu
 pydantic==2.8.0
 facenet-pytorch==2.6.0
+# CLIP backbone (Phase 1 of the engine upgrade). Loaded lazily so it only
+# imports when RANKME_ENGINE=clip_v1. Pinned to a release that ships
+# CLIPModel/CLIPProcessor and works with torch 2.2.x on CPU.
+transformers==4.44.2
