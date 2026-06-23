@@ -39,8 +39,19 @@ class EngineRegistry:
         self._register_default_engines()
 
     def _register_default_engines(self):
-        from engines.similarity_v1 import SimilarityEngineV1
-        self.register(SimilarityEngineV1())
+        # Engines are imported lazily so that selecting one engine doesn't pay
+        # the model-load cost of the others. `RANKME_ENGINE` (read by main.py)
+        # decides which engine is actually served; we still register a stub
+        # name → factory mapping so list_engines() shows what's available.
+        import os
+        active = os.environ.get("RANKME_ENGINE", "similarity_v1")
+
+        if active == "clip_v1":
+            from engines.clip_v1 import CLIPEngineV1
+            self.register(CLIPEngineV1())
+        else:
+            from engines.similarity_v1 import SimilarityEngineV1
+            self.register(SimilarityEngineV1())
 
     def register(self, engine: BaseEngine):
         self._engines[engine.name] = engine
