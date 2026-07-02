@@ -7,8 +7,155 @@ import { cn } from "@/lib/utils";
 
 type Phase = "ask" | "select" | "submitting" | "thanks_confirmed" | "thanks_corrected";
 
+// サーバの POST /api/diagnose/[id]/correction が返す nextImpact のスキーマに合わせる。
+// bias.ts の BiasPhase と同じ集合。
+type BiasPhase = "off" | "partial" | "active" | "suppressed";
+
+type NextImpact = {
+  aiBucket: number;
+  bucketSampleCount: number;
+  phase: BiasPhase;
+  samplesUntilPartial: number;
+  samplesUntilActive: number;
+};
+
+// bias.ts と同じ閾値。API レスポンスに samplesUntil* が入っているので UI 側で
+// 定義するのは進捗バーの分母だけ。ここが乖離した時は視覚バグにしかならないので、
+// 将来的には API 側から返す設計も検討。
+const STAGE_PARTIAL_MIN = 5;
+const STAGE_ACTIVE_MIN = 20;
+
 function confidenceLabel(v: number): string {
   return ["うろ覚え", "やや弱い", "中くらい", "わりと自信", "確信"][v - 1] ?? "中くらい";
+}
+
+/**
+ * サーバから返る nextImpact を最小限バリデートする。API が古い / エラー時に
+ * 想定外の値が入ってこないよう防御。
+ */
+function isNextImpact(v: unknown): v is NextImpact {
+  if (!v || typeof v !== "object") return false;
+  const x = v as Record<string, unknown>;
+  return (
+    typeof x.aiBucket === "number" &&
+    typeof x.bucketSampleCount === "number" &&
+    typeof x.samplesUntilPartial === "number" &&
+    typeof x.samplesUntilActive === "number" &&
+    (x.phase === "off" ||
+      x.phase === "partial" ||
+      x.phase === "active" ||
+      x.phase === "suppressed")
+  );
+}
+
+/**
+ * フィードバック送信後に「次回判定への効き」を可視化するバナー。
+ *
+ * - active   : ゴール到達、満タンの緑バー
+ * - partial  : 途中、あと何件で active に上がるか
+ * - off      : まだ効かない、あと何件で partial (反映開始) に上がるか
+ * - suppressed: フィードバックの方向がばらばら → 補正なし。ユーザーへの説明優先
+ */
+function NextImpactBanner({ impact }: { impact: NextImpact }) {
+  if (impact.phase === "active") {
+    return (
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+          <span>ランク {impact.aiBucket} 帯の集積状況</span>
+          <span className="font-mono">{impact.bucketSampleCount} 件 (本格反映中)</span>
+        </div>
+        <ProgressBar value={1} tone="active" />
+        <p className="text-[11px] text-[var(--text-secondary)]">
+          次回以降、同じランク帯の判定に <strong>しっかり反映</strong> されます。
+        </p>
+      </div>
+    );
+  }
+
+  if (impact.phase === "partial") {
+    // partial 中は「あと N 件で本格反映」= samplesUntilActive を進捗にする
+    const ratio =
+      (STAGE_ACTIVE_MIN - impact.samplesUntilActive) / STAGE_ACTIVE_MIN;
+    return (
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+          <span>ランク {impact.aiBucket} 帯の集積状況</span>
+          <span className="font-mono">
+            {impact.bucketSampleCount} / {STAGE_ACTIVE_MIN} 件
+          </span>
+        </div>
+        <ProgressBar value={ratio} tone="partial" />
+        <p className="text-[11px] text-[var(--text-secondary)]">
+          次回以降の判定に <strong>控えめに反映</strong> されます (あと{" "}
+          {impact.samplesUntilActive} 件で本格反映)。
+        </p>
+      </div>
+    );
+  }
+
+  if (impact.phase === "suppressed") {
+    return (
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+          <span>ランク {impact.aiBucket} 帯の集積状況</span>
+          <span className="font-mono">{impact.bucketSampleCount} 件</span>
+        </div>
+        <ProgressBar value={0} tone="off" />
+        <p className="text-[11px] text-[var(--text-secondary)]">
+          同ランク帯のフィードバックの方向がばらばらのため、いまは自動反映を
+          見送っています (誤補正を避けるため)。
+        </p>
+      </div>
+    );
+  }
+
+  // off
+  const ratio = (STAGE_PARTIAL_MIN - impact.samplesUntilPartial) / STAGE_PARTIAL_MIN;
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+        <span>ランク {impact.aiBucket} 帯の集積状況</span>
+        <span className="font-mono">
+          {impact.bucketSampleCount} / {STAGE_PARTIAL_MIN} 件
+        </span>
+      </div>
+      <ProgressBar value={ratio} tone="off" />
+      <p className="text-[11px] text-[var(--text-secondary)]">
+        あと <strong>{impact.samplesUntilPartial} 件</strong>{" "}
+        で、このランク帯の判定への反映が始まります。
+      </p>
+    </div>
+  );
+}
+
+/**
+ * 0 - 1 の value を横棒で描く。トーンで色を出し分ける。
+ */
+function ProgressBar({
+  value,
+  tone,
+}: {
+  value: number;
+  tone: "off" | "partial" | "active";
+}) {
+  const pct = Math.max(0, Math.min(1, value)) * 100;
+  const color =
+    tone === "active"
+      ? "bg-[var(--accent)]"
+      : tone === "partial"
+      ? "bg-[var(--accent)]/60"
+      : "bg-[var(--muted)]/40";
+  return (
+    <div
+      className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--muted)]/15"
+      role="progressbar"
+      aria-valuenow={Math.round(pct)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div className={cn("h-full transition-all duration-300", color)} style={{ width: `${pct}%` }} />
+    </div>
+  );
 }
 
 interface CorrectionFeedbackProps {
@@ -29,6 +176,9 @@ export function CorrectionFeedback({
   const [confidence, setConfidence] = useState<number>(3);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // サーバから返る「次回判定への反映進捗」。thanks_corrected 画面で見える化。
+  // API が古い (nextImpact を返さない) 場合は null のまま、旧文言で表示する。
+  const [nextImpact, setNextImpact] = useState<NextImpact | null>(null);
 
   // 元のランクと同じ値を選んだら送信は無意味 (中央値集約のノイズになる)。
   // 「これは元の判定です」と明示し、submitボタンも抑止する。
@@ -95,6 +245,9 @@ export function CorrectionFeedback({
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error?.message ?? "送信に失敗しました");
       }
+      // サーバが返す nextImpact をパース。無い場合は null のまま (旧APIとの互換)。
+      const body = await res.json().catch(() => null);
+      setNextImpact(isNextImpact(body?.nextImpact) ? body.nextImpact : null);
       setPhase("thanks_corrected");
     } catch (err) {
       setError(err instanceof Error ? err.message : "送信に失敗しました");
@@ -132,8 +285,19 @@ export function CorrectionFeedback({
         </p>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">
           <span className="font-mono">{originalRank}</span> 位 →{" "}
-          <span className="font-mono">{selectedRank}</span> 位として記録しました。次回以降の判定精度向上に使われます。
+          <span className="font-mono">{selectedRank}</span> 位として記録しました。
         </p>
+        {/*
+          反映進捗の可視化。同じ AI 判定ランクのバケットに何件集まっていて、
+          あと何件で「本格反映」に上がるかを表示する。
+          nextImpact が無い (旧API) 場合はこのブロックは出さず、旧文言のみ。
+        */}
+        {nextImpact && <NextImpactBanner impact={nextImpact} />}
+        {!nextImpact && (
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">
+            次回以降の判定精度向上に使われます。
+          </p>
+        )}
         {/*
           一度送って終わりにせず、後から「やっぱり違う値だった」と気付いた時の
           再修正導線を残しておく。サーバ側は中央値で集約するので、繰り返し送っても
